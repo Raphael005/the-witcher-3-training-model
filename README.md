@@ -95,3 +95,56 @@ pytest
 
 The tests only exercise config loading, so they run quickly and need neither a
 GPU nor network access.
+
+## Training Results
+
+Trained on Apple Silicon (MPS backend) for ~35 minutes:
+
+| Metric | Initial | Final |
+| --- | --- | --- |
+| Train Loss | 2.957 | 0.660 |
+| Train Accuracy | 46.78% | 85.07% |
+| Eval Loss (best) | - | 2.391 |
+| Eval Accuracy | - | 53.93% |
+
+See [`TRAINING_REPORT.md`](TRAINING_REPORT.md) for detailed metrics and analysis.
+
+## Inference Examples
+
+The fine-tuned model generates contextually relevant Witcher 3 responses in Portuguese:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+model = AutoModelForCausalLM.from_pretrained("runs/sft-witcher3-ptbr-qwen35-08b-full")
+tokenizer = AutoTokenizer.from_pretrained("runs/sft-witcher3-ptbr-qwen35-08b-full")
+
+messages = [{"role": "user", "content": "Quem é Ciri?"}]
+text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+inputs = tokenizer(text, return_tensors="pt")
+outputs = model.generate(**inputs, max_new_tokens=150, temperature=0.7)
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+**Sample outputs:**
+
+| Prompt | Response |
+| --- | --- |
+| "Quem é Ciri?" | "Ciri é uma jovem feiticeira com espírito leshen, poderosa e tem um vínculo profundo com a floresta." |
+| "O que são os sinais de um bruxo?" | "Sinais incluem: mutação genética, perfeitidão mágica, comportamento socialmente inusitado..." |
+| "Conte-me sobre a Caçada Selvagem." | "A Caçada Selvagem é um grupo de elfos que se estabelecem em Velen, lutam contra o mal..." |
+
+## macOS / MPS Compatibility
+
+This project includes fixes for running on Apple Silicon:
+
+- `tf32` is automatically disabled on non-CUDA devices
+- Default optimizer changed to `adamw_torch` (no bitsandbytes dependency)
+- Reduced batch size and sequence length for memory constraints
+
+To run on MPS with limited memory:
+
+```bash
+PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 python scripts/train.py
+```
