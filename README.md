@@ -1,16 +1,32 @@
-# the-witcher-3-training-model
+# The Witcher 3 Training Model
+
+🎮 **Fine-tuned LLM for Witcher 3 conversations in Brazilian Portuguese**
+
+[![Model on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-md.svg)](https://huggingface.co/tendrivalentin/witcher3-qwen35-08b-sft-ptbr)
+
+## 🚀 Quick Start
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained("tendrivalentin/witcher3-qwen35-08b-sft-ptbr")
+tokenizer = AutoTokenizer.from_pretrained("tendrivalentin/witcher3-qwen35-08b-sft-ptbr")
+
+messages = [{"role": "user", "content": "Quem é Ciri?"}]
+text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+outputs = model.generate(tokenizer(text, return_tensors="pt").input_ids, max_new_tokens=150)
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+## Overview
 
 Supervised fine-tuning (SFT) pipeline for **Qwen3.5-0.8B** on the
-[`FelippeTN/witcher3-dataset-ptbr`](https://huggingface.co/datasets/FelippeTN/witcher3-dataset-ptbr),
-a The Witcher 3 instruction dataset in Brazilian Portuguese. Each row is a chat
-conversation (`messages`: system / user / assistant) with `id` and `category`
-metadata — ~547 examples in a single `train` split, so the pipeline carves out
-its own validation set.
+[`FelippeTN/witcher3-dataset-ptbr`](https://huggingface.co/datasets/FelippeTN/witcher3-dataset-ptbr)
+dataset — a Witcher 3 instruction dataset in Brazilian Portuguese with ~547 chat examples.
 
 The training code is configuration-driven: hyperparameters live in YAML files
 under [`configs/`](configs/), and the Python package under
-[`src/witcher_sft/`](src/witcher_sft/) reads them. You change a run by editing a
-config, not the code.
+[`src/witcher_sft/`](src/witcher_sft/) reads them.
 
 ## Project layout
 
