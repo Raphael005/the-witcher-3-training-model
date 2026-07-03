@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "witcher-sft"
+version = "0.1.0"
+description = "Supervised fine-tuning pipeline for Qwen3.5 on the Valdoria (The Witcher 3) dataset"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Felippe" }]
+dependencies = [
+    "torch>=2.3",
+    "transformers>=4.44",
+    "trl>=0.11",
+    "datasets>=2.20",
+    "accelerate>=0.33",
+    "bitsandbytes>=0.43; platform_system != 'Darwin'",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+witcher-sft = "witcher_sft.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

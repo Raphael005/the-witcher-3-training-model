@@ -1,0 +1,97 @@
+# the-witcher-3-training-model
+
+Supervised fine-tuning (SFT) pipeline for **Qwen3.5-0.8B** on the
+[`FelippeTN/witcher3-dataset-ptbr`](https://huggingface.co/datasets/FelippeTN/witcher3-dataset-ptbr),
+a The Witcher 3 instruction dataset in Brazilian Portuguese. Each row is a chat
+conversation (`messages`: system / user / assistant) with `id` and `category`
+metadata — ~547 examples in a single `train` split, so the pipeline carves out
+its own validation set.
+
+The training code is configuration-driven: hyperparameters live in YAML files
+under [`configs/`](configs/), and the Python package under
+[`src/witcher_sft/`](src/witcher_sft/) reads them. You change a run by editing a
+config, not the code.
+
+## Project layout
+
+```
+.
+├── configs/                  # YAML training configs (the knobs you tune)
+│   └── sft_qwen35_08b.yaml
+├── src/witcher_sft/          # Importable package
+│   ├── config.py             # Typed config loaded from YAML
+│   ├── data.py               # Dataset loading + train/eval split
+│   ├── model.py              # Model & tokenizer construction
+│   ├── trainer.py            # Wires everything into TRL's SFTTrainer
+│   └── cli.py                # `witcher-sft` entrypoint
+├── scripts/train.py          # Run without installing the package
+├── tests/                    # Fast, offline smoke tests
+├── pyproject.toml            # Packaging + dependencies + tooling
+└── requirements.txt
+```
+
+## Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"            # installs the package + dev tools
+cp .env.example .env               # then fill in HF_TOKEN if needed
+```
+
+> `bitsandbytes` (used by the `adamw_bnb_8bit` optimizer) requires a CUDA GPU.
+> On CPU/macOS, switch `optim` in the config to `adamw_torch`.
+
+## Training
+
+```bash
+# Installed entrypoint:
+witcher-sft --config configs/sft_qwen35_08b.yaml
+
+# Or, without installing:
+python scripts/train.py --config configs/sft_qwen35_08b.yaml
+```
+
+Checkpoints and the final model are written to
+`runs/<run_name>/` (override the location with the `SFT_OUTPUT_ROOT`
+environment variable).
+
+### Hardware
+
+The default config is tuned for a single **RTX 4060 (8 GB VRAM)** doing full
+fine-tuning of the 0.8B model:
+
+- `per_device_train_batch_size: 2` × `gradient_accumulation_steps: 8`
+  → effective batch of **16** without exhausting VRAM.
+- `gradient_checkpointing` and the 8-bit optimizer (`adamw_bnb_8bit`) keep the
+  static footprint around ~5 GB, leaving room for activations.
+- `auto_find_batch_size` halves the per-device batch automatically if you still
+  hit an out-of-memory error.
+
+If VRAM is tight, lower `training.max_length` (e.g. 768 or 512). On a 16 GB card
+(RTX 4060 Ti 16 GB) you can raise `per_device_train_batch_size` to 8 and set
+`gradient_accumulation_steps` to 2.
+
+## Configuration
+
+Everything reproducible is captured in the YAML config. Key fields:
+
+| Field | Meaning |
+| --- | --- |
+| `model.model_id` | Base model on the Hugging Face Hub |
+| `data.dataset_id` | SFT dataset id |
+| `data.eval_split_size` | Held-out fraction when the dataset has no eval split |
+| `output.run_name` | Subfolder under the output root |
+| `training.*` | Epochs, batch size, LR schedule, eval/save cadence, etc. |
+
+To create a new experiment, copy the YAML, change `output.run_name`, tweak
+hyperparameters, and point `--config` at it.
+
+## Tests
+
+```bash
+pytest
+```
+
+The tests only exercise config loading, so they run quickly and need neither a
+GPU nor network access.

@@ -1,0 +1,53 @@
+# Full fine-tuning of Qwen3.5-0.8B on the Witcher 3 (pt-BR) SFT dataset.
+# Every value here is a knob you can change without touching the code.
+
+seed: 42
+
+model:
+  model_id: "Qwen/Qwen3.5-0.8B"
+  trust_remote_code: true
+  gradient_checkpointing: true
+
+data:
+  # Chat-format dataset: each row has a `messages` (system/user/assistant) field.
+  # Single `train` split (~547 rows), so an eval split is carved out below.
+  dataset_id: "FelippeTN/witcher3-dataset-ptbr"
+  eval_split_size: 0.1
+
+output:
+  # Can be overridden by the SFT_OUTPUT_ROOT environment variable.
+  output_root: "runs"
+  run_name: "sft-witcher3-ptbr-qwen35-08b-full"
+
+training:
+  # Tuned for a single RTX 4060 (8 GB VRAM), full fine-tuning.
+  # Effective batch = per_device_train_batch_size * gradient_accumulation_steps = 16.
+  # `auto_find_batch_size` is a safety net: it halves the per-device batch on OOM.
+  num_train_epochs: 3
+  max_steps: -1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  auto_find_batch_size: true
+  gradient_accumulation_steps: 16
+  learning_rate: 1.5e-5
+  warmup_steps: 10
+  weight_decay: 0.01
+  lr_scheduler_type: "cosine"
+  optim: "adamw_torch"
+  max_length: 512
+  assistant_only_loss: true
+  loss_type: "nll"
+
+  # Dataset is small (~92 optimizer steps total), so eval/save often.
+  eval_strategy: "steps"
+  eval_steps: 25
+  logging_steps: 10
+  save_strategy: "steps"
+  save_steps: 25
+  save_total_limit: 2
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+
+  # Experiment tracking: "none", "wandb", "tensorboard", ...
+  report_to: "none"
